@@ -260,8 +260,8 @@ resource "tls_private_key" "ekscl" {
   rsa_bits  = 4096
 }
 
-resource "aws_key_pair" "ekscl_sshkey" {
-  key_name   = "ekscl-sshkey"
+resource "aws_key_pair" "id_rsa" {
+  key_name   = var.key_name
   public_key = tls_private_key.ekscl.public_key_openssh
 }
 
@@ -320,12 +320,16 @@ output "node_group_role_arn" {
   value = aws_iam_role.eks_node_role.arn
 }
 
+output "bastion_public_ip" {
+  value = aws_instance.bastion.public_ip
+}
+
 resource "aws_instance" "bastion" {
-  ami                         = var.aws_ami # Ubuntu or Amazon Linux
+  ami                         = var.aws_ami
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.public_subnet.id
   associate_public_ip_address = true
-  key_name                    = var.key_name
+  key_name                    = aws_key_pair.sshkey.key_name
   vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
 
   tags = {
