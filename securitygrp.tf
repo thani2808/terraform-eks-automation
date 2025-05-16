@@ -1,14 +1,15 @@
 # --- Security Group for Bastion Host / Admin Access ---
 resource "aws_security_group" "bastion_sg" {
   name        = "${var.env}-bastion-sg"
-  description = "Allow SSH access to Bastion from admin and to private EC2"
+  description = "Allow SSH access"
   vpc_id      = aws_vpc.main.id
 
   ingress {
+    description = "SSH from your IP"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.admin_cidr] # Your IP for direct access
+    cidr_blocks = ["49.205.80.172/32"] # e.g. "203.0.113.0/32"
   }
 
   egress {
