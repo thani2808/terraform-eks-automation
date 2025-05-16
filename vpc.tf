@@ -61,11 +61,11 @@ resource "aws_subnet" "db_subnet" {
 # ------------------------
 # INTERNET GATEWAY
 # ------------------------
-resource "aws_internet_gateway" "my_igw" {
+resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = var.my_igw_name
+    Name = "${var.env}-igw"
   }
 }
 
@@ -75,15 +75,14 @@ resource "aws_internet_gateway" "my_igw" {
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = var.pub_route_name
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
   }
-}
 
-resource "aws_route" "public_route" {
-  route_table_id         = aws_route_table.public_rt.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.my_igw.id
+  tags = {
+    Name = "${var.env}-public-rt"
+  }
 }
 
 resource "aws_route_table_association" "public_assoc" {
@@ -202,26 +201,56 @@ resource "aws_eks_cluster" "main" {
 # ------------------------
 # EKS NODE GROUP
 # ------------------------
-resource "aws_eks_node_group" "main" {
-  cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "${var.env}-eks-nodes"
-  node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids = [
-    aws_subnet.private_subnet_1a.id,
-    aws_subnet.private_subnet_1b.id
-  ]
-  scaling_config {
-    desired_size = 2
-    max_size     = 3
-    min_size     = 1
-  }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_node_AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.eks_node_AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.eks_node_AmazonEC2ContainerRegistryReadOnly
-  ]
+# VPC Endpoint for EC2
+resource "aws_vpc_endpoint" "ec2" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.ec2"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
+  security_group_ids  = [aws_security_group.endpoint_sg.id]
+  private_dns_enabled = true
 }
+
+# VPC Endpoint for STS (used by EKS for IAM)
+resource "aws_vpc_endpoint" "sts" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.sts"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
+  security_group_ids  = [aws_security_group.endpoint_sg.id]
+  private_dns_enabled = true
+}
+
+# VPC Endpoint for ECR API
+resource "aws_vpc_endpoint" "ecr_api" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
+  security_group_ids  = [aws_security_group.endpoint_sg.id]
+  private_dns_enabled = true
+}
+
+# VPC Endpoint for ECR Docker
+resource "aws_vpc_endpoint" "ecr_dkr" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
+  security_group_ids  = [aws_security_group.endpoint_sg.id]
+  private_dns_enabled = true
+}
+
+# VPC Endpoint for S3 (Gateway type)
+# resource "aws_vpc_endpoint" "s3" {
+#   vpc_id       = aws_vpc.main.id
+#   service_name = "com.amazonaws.${var.region}.s3"
+#   route_table_ids = [
+#     aws_route_table.private_rt_1a.id,
+#     aws_route_table.private_rt_1b.id
+#   ]
+#   vpc_endpoint_type = "Gateway"
+# }
 
 # ------------------------
 # SSH KEY
@@ -289,4 +318,17 @@ output "eks_cluster_certificate_authority" {
 
 output "node_group_role_arn" {
   value = aws_iam_role.eks_node_role.arn
+}
+
+resource "aws_instance" "bastion" {
+  ami                         = var.aws_ami # Ubuntu or Amazon Linux
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.public_subnet.id
+  associate_public_ip_address = true
+  key_name                    = var.key_name
+  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
+
+  tags = {
+    Name = "${var.env}-bastion-host"
+  }
 }

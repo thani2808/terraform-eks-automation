@@ -154,17 +154,46 @@ variable "env" {
   type        = string
 }
 
-variable "key_administrators" {
-  description = "List of IAM ARNs with full KMS key administration access"
-  type        = list(string)
-}
+# variable "key_administrators" {
+#   description = "List of IAM ARNs with full KMS key administration access"
+#   type        = list(string)
+# }
 
-variable "key_users" {
-  description = "List of IAM ARNs (e.g., EKS roles) with permission to use the KMS key"
-  type        = list(string)
-}
+# variable "key_users" {
+#   description = "List of IAM ARNs (e.g., EKS roles) with permission to use the KMS key"
+#   type        = list(string)
+# }
 
 variable "admin_cidr" {
-  description = "CIDR block allowed to access the management server (e.g., 45.119.28.236/32)"
+  description = "Admin public IP range for SSH access"
   type        = string
 }
+
+# variable "env" {
+#   description = "Environment name (e.g., dev, prod)"
+#   type        = string
+# }
+
+variable "ami_id" {
+  description = "AMI ID for the bastion host"
+  type        = string
+}
+
+# variable "key_name" {
+#   description = "SSH Key pair name"
+#   type        = string
+# }
+
+# variable "admin_cidr" {
+#   description = "Admin IP CIDR for SSH access"
+#   type        = string
+# }
+
+
+# variable "key_administrators" {
+#   default = "arn:aws:iam::430861662740:root"
+# }
+
+# variable "key_users" {
+#   default = "arn:aws:iam::430861662740:role/EKSClusterRole"
+# }

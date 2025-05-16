@@ -1,4 +1,4 @@
 resource "aws_key_pair" "sshkey" {
-  key_name   = "ekscl-sshkey"
+  key_name   = "id_rsa"
   public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCzDLTji8qJ0OJIgvUxtidpMg7mQ3A0YImNgJnOE4jSm+OGRUzQdUdC3LM56DTrw32aFlt5NgdRinkoj7ZKnxyYD2njIUObRAsDKIOxUbnFMfEfw9QatKHVq9+AMlYuLKeDejMCS1KNisa7aksIIFMm8YfsMqfXK83q4p8cCrWxefuVUt+v/l/7vBiRh6AHpDBCmUVWLw6vDcPm7hFA7jLCx9IC4TzfWBRcSiEKqfWOQ2s5TnJI9m7zoAgaRpgUIoAZT1wlqHoPYeYoyCFiueNpvYE2JyXtTx9aZoqMWPoeLg9dvfOquee16zZpuxgjYaYQlkUtHs1V0YPsxQGArG7f1c4G2N0s3g6LtmyDpm4VZtmQUoBwUDDrwL3y0tPSKl7U06QNqHtzeEKwGR5+pwiCtmwGiA4+cn49+BmJDWrFr53Tk5XeIMRDCDkVIl3CPtQoeAJw9ENRbK3/uTU4YQAgDamMTobRojmfoYJV0VX6MleUpWwcKk0Nx6ElBDC3pQs= thani@LAPTOP-M4G4DCTU"
 }

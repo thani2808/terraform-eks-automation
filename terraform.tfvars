@@ -32,12 +32,12 @@ nodename = "myeks"
 eks_cluster_name   = "my-eks-cluster"
 eks_nodegroup_name = "my-nodegroup"
 
-key_administrators = [
-  "arn:aws:iam::430861662740:role/my-eks-role"
-]
+# key_administrators = [
+#   "arn:aws:iam::430861662740:role/my-eks-role"
+# ]
 
-key_users = [
-  "arn:aws:iam::430861662740:user/admin"
-]
+# key_users = [
+#   "arn:aws:iam::430861662740:user/admin"
+# ]
 
 admin_cidr = "45.119.28.236/32" # corrected CIDR mask
