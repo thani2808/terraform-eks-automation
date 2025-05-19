@@ -9,7 +9,7 @@ resource "aws_security_group" "bastion_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["49.205.80.172/32"] # e.g. "203.0.113.0/32"
+    cidr_blocks = ["49.205.80.172/32"]
   }
 
   egress {
@@ -24,16 +24,26 @@ resource "aws_security_group" "bastion_sg" {
   }
 }
 
+# --- Security Group for Private EC2 / Worker Nodes ---
 resource "aws_security_group" "private_instance_sg" {
   name        = "${var.env}-private-ssh-sg"
-  description = "Allow SSH from Bastion host"
+  description = "Allow SSH from Bastion host and HTTPS to EKS"
   vpc_id      = aws_vpc.main.id
 
   ingress {
+    description     = "Allow SSH from bastion"
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.bastion_sg.id] # SSH allowed from bastion
+    security_groups = [aws_security_group.bastion_sg.id]
+  }
+
+  ingress {
+    description = "Allow HTTPS to EKS control plane"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
   egress {
@@ -82,6 +92,7 @@ resource "aws_security_group" "web_security_group" {
   }
 }
 
+# --- Security Group for VPC Endpoints ---
 resource "aws_security_group" "endpoint_sg" {
   name        = "${var.env}-vpc-endpoint-sg"
   description = "Allow HTTPS traffic to VPC endpoints"
@@ -99,5 +110,9 @@ resource "aws_security_group" "endpoint_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.env}-vpc-endpoint-sg"
   }
 }

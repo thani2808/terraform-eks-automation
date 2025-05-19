@@ -31,7 +31,7 @@ resource "aws_instance" "bastion_host" {
   subnet_id              = aws_subnet.private_subnet_1a.id
   iam_instance_profile   = aws_iam_instance_profile.ssm_instance_profile.name
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
-  key_name               = aws_key_pair.sshkey.key_name
+  key_name               = aws_key_pair.id_rsa.key_name
 
   user_data = <<-EOF
     #!/bin/bash
