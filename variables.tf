@@ -174,6 +174,11 @@ variable "admin_cidr" {
 #   type        = string
 # }
 
+variable "public_key_path" {
+  description = "Path to the public key file"
+  type        = string
+}
+
 variable "ami_id" {
   description = "AMI ID for the bastion host"
   type        = string

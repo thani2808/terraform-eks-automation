@@ -9,16 +9,16 @@ availability_zone1b = "ap-south-1b"
 vpc_cidr = "10.15.0.0/16"
 vpc_name = "vpc-poc"
 
-web_sub_cidr = "10.15.2.0/23"
+web_sub_cidr = "10.15.1.0/24"
 web_sub_name = "web-subnet"
 
-app_sub_cidr_1a = "10.15.4.0/23"
-app_sub_cidr_1b = "10.15.6.0/23"
+app_sub_cidr_1a = "10.15.2.0/24"
+app_sub_cidr_1b = "10.15.3.0/24"
 
 app_sub_name_1a = "app-subnet-1a"
 app_sub_name_1b = "app-subnet-1b"
 
-db_sub_cidr = "10.15.8.0/23"
+db_sub_cidr = "10.15.10.0/24"
 db_sub_name = "db-subnet" # corrected here
 
 pub_route_name = "pub_route"
@@ -40,4 +40,6 @@ eks_nodegroup_name = "my-nodegroup"
 #   "arn:aws:iam::430861662740:user/admin"
 # ]
 
-admin_cidr = "45.119.28.236/32" # corrected CIDR mask
+public_key_path = "~/.ssh/id_rsa.pub"
+
+admin_cidr = "49.205.86.94/32" # corrected CIDR mask

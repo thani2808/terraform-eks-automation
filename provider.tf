@@ -8,11 +8,11 @@ terraform {
 
   required_version = ">= 1.0"
 
-  backend "s3" {
-    bucket = "tf-backup-1505"
-    key    = "state/terraform.tfstate"
-    region = "ap-south-1"
-  }
+  # backend "s3" {
+  #   bucket = "tf-backup-1505"
+  #   key    = "state/terraform.tfstate"
+  #   region = "ap-south-1"
+  # }
 }
 
 provider "aws" {

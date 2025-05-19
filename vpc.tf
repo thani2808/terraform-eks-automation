@@ -1,3 +1,5 @@
+# Cleaned Terraform code with duplicates removed and structure preserved
+
 # ------------------------
 # VPC
 # ------------------------
@@ -14,7 +16,7 @@ resource "aws_vpc" "main" {
 # ------------------------
 # SUBNETS
 # ------------------------
-resource "aws_subnet" "public_subnet" {
+resource "aws_subnet" "public_subnet_1a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.web_sub_cidr
   availability_zone       = var.availability_zone1a
@@ -59,6 +61,22 @@ resource "aws_subnet" "db_subnet" {
 }
 
 # ------------------------
+# BASTION HOST
+# ------------------------
+resource "aws_instance" "bastion" {
+  ami                         = var.aws_ami
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.public_subnet_1a.id
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.id_rsa.key_name
+  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
+
+  tags = {
+    Name = "${var.env}-bastion-host"
+  }
+}
+
+# ------------------------
 # INTERNET GATEWAY
 # ------------------------
 resource "aws_internet_gateway" "igw" {
@@ -86,43 +104,70 @@ resource "aws_route_table" "public_rt" {
 }
 
 resource "aws_route_table_association" "public_assoc" {
-  subnet_id      = aws_subnet.public_subnet.id
+  subnet_id      = aws_subnet.public_subnet_1a.id
   route_table_id = aws_route_table.public_rt.id
 }
 
-resource "aws_route_table" "private_rt" {
+resource "aws_route_table" "private_rt_1a" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = var.pri_route_name
+    Name = "${var.env}-private-rt-1a"
   }
 }
 
-resource "aws_route_table_association" "private_assoc_1a" {
+resource "aws_route" "private_nat_route_1a" {
+  route_table_id         = aws_route_table.private_rt_1a.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat_gw.id
+}
+
+resource "aws_route_table_association" "private_1a" {
   subnet_id      = aws_subnet.private_subnet_1a.id
-  route_table_id = aws_route_table.private_rt.id
+  route_table_id = aws_route_table.private_rt_1a.id
 }
 
-resource "aws_route_table_association" "private_assoc_1b" {
+resource "aws_route_table_association" "private_1b" {
   subnet_id      = aws_subnet.private_subnet_1b.id
-  route_table_id = aws_route_table.private_rt.id
+  route_table_id = aws_route_table.private_rt_1a.id
 }
 
-resource "aws_route_table_association" "private_assoc_db" {
+resource "aws_route_table_association" "private_db" {
   subnet_id      = aws_subnet.db_subnet.id
-  route_table_id = aws_route_table.private_rt.id
+  route_table_id = aws_route_table.private_rt_1a.id
 }
 
 # ------------------------
-# IAM POLICY DOCUMENTS
+# NAT GATEWAY
 # ------------------------
+resource "aws_eip" "nat_eip" {
+  tags = {
+    Name = "nat-eip"
+  }
+}
 
+resource "aws_nat_gateway" "nat_gw" {
+  allocation_id = aws_eip.nat_eip.id
+  subnet_id     = aws_subnet.public_subnet_1a.id
+  depends_on    = [aws_internet_gateway.igw]
+
+  tags = {
+    Name = "nat-gw"
+  }
+}
+
+resource "aws_key_pair" "id_rsa" {
+  key_name   = "id_rsa"
+  public_key = file("~/.ssh/id_rsa.pub")
+}
+
+# ------------------------
+# IAM ROLES AND POLICIES
+# ------------------------
 data "aws_iam_policy_document" "eks_cluster_assume_role_policy" {
   statement {
-    effect = "Allow"
-
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
-
     principals {
       type        = "Service"
       identifiers = ["eks.amazonaws.com"]
@@ -130,26 +175,8 @@ data "aws_iam_policy_document" "eks_cluster_assume_role_policy" {
   }
 }
 
-data "aws_iam_policy_document" "eks_node_assume_role_policy" {
-  statement {
-    effect = "Allow"
-
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-# ------------------------
-# IAM ROLES AND POLICIES
-# ------------------------
-
 resource "aws_iam_role" "eks_cluster_role" {
-  name = "${var.env}-eks-cluster-role"
-
+  name               = "${var.env}-eks-cluster-role"
   assume_role_policy = data.aws_iam_policy_document.eks_cluster_assume_role_policy.json
 }
 
@@ -158,10 +185,22 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_AmazonEKSClusterPolicy" {
   role       = aws_iam_role.eks_cluster_role.name
 }
 
+# Node Role
 resource "aws_iam_role" "eks_node_role" {
   name = "${var.env}-eks-node-role"
 
-  assume_role_policy = data.aws_iam_policy_document.eks_node_assume_role_policy.json
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "eks_node_AmazonEKSWorkerNodePolicy" {
@@ -201,138 +240,124 @@ resource "aws_eks_cluster" "main" {
 # ------------------------
 # EKS NODE GROUP
 # ------------------------
-# VPC Endpoint for EC2
-resource "aws_vpc_endpoint" "ec2" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ec2"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
-  security_group_ids  = [aws_security_group.endpoint_sg.id]
-  private_dns_enabled = true
-}
+resource "aws_eks_node_group" "eks_nodes" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${var.env}-node-group"
+  node_role_arn   = aws_iam_role.eks_node_role.arn
 
-# VPC Endpoint for STS (used by EKS for IAM)
-resource "aws_vpc_endpoint" "sts" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.sts"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
-  security_group_ids  = [aws_security_group.endpoint_sg.id]
-  private_dns_enabled = true
-}
+  subnet_ids = [
+    aws_subnet.private_subnet_1a.id,
+    aws_subnet.private_subnet_1b.id
+  ]
 
-# VPC Endpoint for ECR API
-resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ecr.api"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
-  security_group_ids  = [aws_security_group.endpoint_sg.id]
-  private_dns_enabled = true
-}
+  scaling_config {
+    desired_size = 2
+    max_size     = 3
+    min_size     = 1
+  }
 
-# VPC Endpoint for ECR Docker
-resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.region}.ecr.dkr"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_subnet_1a.id, aws_subnet.private_subnet_1b.id]
-  security_group_ids  = [aws_security_group.endpoint_sg.id]
-  private_dns_enabled = true
-}
+  instance_types = ["t3.medium"]
+  ami_type       = "AL2_x86_64"
 
-# VPC Endpoint for S3 (Gateway type)
-# resource "aws_vpc_endpoint" "s3" {
-#   vpc_id       = aws_vpc.main.id
-#   service_name = "com.amazonaws.${var.region}.s3"
-#   route_table_ids = [
-#     aws_route_table.private_rt_1a.id,
-#     aws_route_table.private_rt_1b.id
-#   ]
-#   vpc_endpoint_type = "Gateway"
-# }
+  remote_access {
+    ec2_ssh_key               = aws_key_pair.id_rsa.key_name
+    source_security_group_ids = [aws_security_group.private_instance_sg.id]
+  }
 
-# ------------------------
-# SSH KEY
-# ------------------------
-resource "tls_private_key" "ekscl" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_node_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.eks_node_AmazonEC2ContainerRegistryReadOnly,
+    aws_iam_role_policy_attachment.eks_node_AmazonEKS_CNI_Policy,
+    aws_eks_cluster.main
+  ]
 
-resource "aws_key_pair" "id_rsa" {
-  key_name   = var.key_name
-  public_key = tls_private_key.ekscl.public_key_openssh
-}
-
-output "private_key_pem" {
-  value     = tls_private_key.ekscl.private_key_pem
-  sensitive = true
-}
-
-# ------------------------
-# EKS Load Balancer Controller IAM Policy
-# ------------------------
-resource "aws_iam_policy" "ekscl_EKS_LBC_policy" {
-  name        = "${var.nodename}-${var.env}-EKS-LBC-pl"
-  description = "IAM policy for EKS Load Balancer Controller"
-  policy      = data.aws_iam_policy_document.eks_lbc_policy.json
-}
-
-data "aws_iam_policy_document" "eks_lbc_policy" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "elasticloadbalancing:*",
-      "ec2:Describe*",
-      "ec2:CreateSecurityGroup",
-      "ec2:CreateTags",
-      "ec2:AuthorizeSecurityGroupIngress",
-      "iam:CreateServiceLinkedRole",
-      "cognito-idp:DescribeUserPoolClient",
-      "waf-regional:GetWebACLForResource",
-      "tag:GetResources",
-      "waf:GetWebACL",
-      "shield:GetSubscriptionState",
-      "shield:DescribeProtection",
-      "shield:CreateProtection"
-    ]
-    resources = ["*"]
+  tags = {
+    Name = "${var.env}-eks-node-group"
   }
 }
+
+# ------------------------
+# VPC ENDPOINTS
+# ------------------------
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [aws_route_table.private_rt_1a.id]
+
+  tags = {
+    Name = "${var.env}-s3-endpoint"
+  }
+}
+
+resource "aws_vpc_endpoint" "dynamodb" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.region}.dynamodb"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [aws_route_table.private_rt_1a.id]
+
+  tags = {
+    Name = "${var.env}-dynamodb-endpoint"
+  }
+}
+
+# ------------------------
+# S3 BUCKET
+# ------------------------
+resource "aws_s3_bucket" "cluster_logs" {
+  bucket        = "${var.env}-eks-logs-${random_id.bucket_suffix.hex}"
+  force_destroy = true
+
+  tags = {
+    Name        = "${var.env}-eks-logs"
+    Environment = var.env
+  }
+}
+
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+# Optional: bucket policy or lifecycle rules can be added here
 
 # ------------------------
 # OUTPUTS
 # ------------------------
+output "vpc_id" {
+  value = aws_vpc.main.id
+}
+
+output "public_subnet_id" {
+  value = aws_subnet.public_subnet_1a.id
+}
+
+output "private_subnet_ids" {
+  value = [
+    aws_subnet.private_subnet_1a.id,
+    aws_subnet.private_subnet_1b.id
+  ]
+}
+
+output "db_subnet_id" {
+  value = aws_subnet.db_subnet.id
+}
+
 output "eks_cluster_name" {
   value = aws_eks_cluster.main.name
 }
 
-output "eks_cluster_endpoint" {
-  value = aws_eks_cluster.main.endpoint
+output "eks_node_group_name" {
+  value = aws_eks_node_group.eks_nodes.node_group_name
 }
 
-output "eks_cluster_certificate_authority" {
-  value = aws_eks_cluster.main.certificate_authority[0].data
+output "s3_logs_bucket" {
+  value = aws_s3_bucket.cluster_logs.bucket
 }
 
-output "node_group_role_arn" {
-  value = aws_iam_role.eks_node_role.arn
+output "vpc_endpoint_s3_id" {
+  value = aws_vpc_endpoint.s3.id
 }
 
-output "bastion_public_ip" {
-  value = aws_instance.bastion.public_ip
-}
-
-resource "aws_instance" "bastion" {
-  ami                         = var.aws_ami
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public_subnet.id
-  associate_public_ip_address = true
-  key_name                    = aws_key_pair.sshkey.key_name
-  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
-
-  tags = {
-    Name = "${var.env}-bastion-host"
-  }
+output "vpc_endpoint_dynamodb_id" {
+  value = aws_vpc_endpoint.dynamodb.id
 }
