@@ -40,4 +40,4 @@ eks_nodegroup_name = "my-nodegroup"
 #   "arn:aws:iam::430861662740:user/admin"
 # ]
 
-admin_cidr = "45.119.28.236/32" # corrected CIDR mask
+admin_cidr = "49.205.86.94/32" # corrected CIDR mask

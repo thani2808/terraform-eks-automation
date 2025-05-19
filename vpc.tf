@@ -58,6 +58,19 @@ resource "aws_subnet" "db_subnet" {
   }
 }
 
+resource "aws_instance" "bastion" {
+  ami                         = var.aws_ami
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.public_subnet.id
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.sshkey.key_name
+  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
+
+  tags = {
+    Name = "${var.env}-bastion-host"
+  }
+}
+
 # ------------------------
 # INTERNET GATEWAY
 # ------------------------
@@ -322,17 +335,4 @@ output "node_group_role_arn" {
 
 output "bastion_public_ip" {
   value = aws_instance.bastion.public_ip
-}
-
-resource "aws_instance" "bastion" {
-  ami                         = var.aws_ami
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public_subnet.id
-  associate_public_ip_address = true
-  key_name                    = aws_key_pair.sshkey.key_name
-  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
-
-  tags = {
-    Name = "${var.env}-bastion-host"
-  }
 }
