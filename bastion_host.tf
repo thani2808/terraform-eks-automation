@@ -35,11 +35,47 @@ resource "aws_instance" "bastion_host" {
 
   user_data = <<-EOF
     #!/bin/bash
-    sudo yum install -y python3
-    sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
-    sudo systemctl enable amazon-ssm-agent
-    sudo systemctl start amazon-ssm-agent
+    set -e
+
+    # Install dependencies
+    sudo yum update -y
+    sudo yum install -y python3 curl unzip
+
+    # Install AWS CLI v2
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    sudo ./aws/install
+
+    # Install kubectl
+    curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.28.2/2023-11-17/bin/linux/amd64/kubectl
+    chmod +x ./kubectl
+    sudo mv ./kubectl /usr/local/bin/
+
+    # Install Helm
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+    # Configure kubeconfig for EKS
+    aws eks update-kubeconfig --region ap-south-1 --name poc-eks-cluster
+
+    # Wait for Kubernetes API
+    for i in {1..30}; do
+      if kubectl version --short; then break; fi
+      echo "Waiting for Kubernetes API..." && sleep 10
+    done
+
+    # Deploy Helm chart (example: ingress-nginx)
+    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+    helm repo update
+    helm install my-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
   EOF
+
+  # user_data = <<-EOF
+  #   #!/bin/bash
+  #   sudo yum install -y python3
+  #   sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+  #   sudo systemctl enable amazon-ssm-agent
+  #   sudo systemctl start amazon-ssm-agent
+  # EOF
 
   tags = {
     Name = "my-bastion-host"
