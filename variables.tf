@@ -98,20 +98,20 @@ variable "vpc_route_cidr" {
   type        = string
 }
 
-variable "elastic_ip_name" {
-  description = "Name tag for the Elastic IP address"
-  type        = string
-}
+# variable "elastic_ip_name" {
+#   description = "Name tag for the Elastic IP address"
+#   type        = string
+# }
 
-variable "my_natgw_name" {
-  description = "Name tag for the NAT Gateway"
-  type        = string
-}
+# variable "my_natgw_name" {
+#   description = "Name tag for the NAT Gateway"
+#   type        = string
+# }
 
-variable "natgw_cidr" {
-  description = "CIDR block allowed to access the NAT Gateway (usually VPC CIDR or specific)"
-  type        = string
-}
+# variable "natgw_cidr" {
+#   description = "CIDR block allowed to access the NAT Gateway (usually VPC CIDR or specific)"
+#   type        = string
+# }
 
 # ------------------------------
 # EC2 Configuration Variables
@@ -179,10 +179,10 @@ variable "public_key_path" {
   type        = string
 }
 
-variable "ami_id" {
-  description = "AMI ID for the bastion host"
-  type        = string
-}
+# variable "ami_id" {
+#   description = "AMI ID for the bastion host"
+#   type        = string
+# }
 
 # variable "key_name" {
 #   description = "SSH Key pair name"
